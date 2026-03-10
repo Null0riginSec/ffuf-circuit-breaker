@@ -10,6 +10,9 @@ TARGET="$1"          # The target URL with FUZZ keyword (e.g. https://example.co
 WORDLIST="$2"        # Path to the wordlist file
 shift 2              # Remove the first two arguments to pass extra flags to ffuf
 
+# Set your researcher identifier here (or leave as generic)
+RESEARCHER_ID="Security Researcher"
+
 echo "[+] ffuf Circuit Breaker started on $TARGET"
 echo "[+] Wordlist: $WORDLIST"
 
@@ -39,7 +42,7 @@ ffuf \
   -t 2 \
   -mc 200,301,302,403 \
   -fc 404 \
-  -H "User-Agent: Mozilla/5.0 (compatible; Bugcrowd Researcher - Null0rigin)" \
+  -H "User-Agent: Mozilla/5.0 (compatible; $RESEARCHER_ID)" \
   -o "ffuf-safe-$(date +%F_%H%M).json" \
   -v "$@" 2>&1 | tee "ffuf-safe-live.log" | while read -r line; do
 
