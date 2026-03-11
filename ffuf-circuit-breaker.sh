@@ -36,6 +36,8 @@ trap 'echo -e "\n[!] Caught SIGINT. Stopping cleanly..."; pkill -f "ffuf -u $TAR
 # -fc 404 : Filter out noise (404 pages)
 # =============================================================================
 
+TIMESTAMP=$(date +%F_%H%M)
+
 ffuf \
   -u "$TARGET" \
   -w "$WORDLIST" \
@@ -43,8 +45,8 @@ ffuf \
   -mc 200,301,302,403 \
   -fc 404 \
   -H "User-Agent: Mozilla/5.0 (compatible; $RESEARCHER_ID)" \
-  -o "ffuf-safe-$(date +%F_%H%M).json" \
-  -v "$@" 2>&1 | tee "ffuf-safe-live.log" | while read -r line; do
+  -o "ffuf-safe-${TIMESTAMP}.json" \
+  -v "$@" 2>&1 | tee -a "ffuf-live-${TIMESTAMP}.log" | while read -r line; do
 
     # Print every line to terminal (live view)
     echo "$line"
