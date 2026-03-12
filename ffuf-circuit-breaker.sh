@@ -21,11 +21,19 @@ MAX_429=5            # Threshold - stop after this many 429s in a row
 request_count=0      # Total requests sent (for progress tracking)
 
 # =============================================================================
+# Colors
+# =============================================================================
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+# =============================================================================
 # Clean exit handling
 # =============================================================================
 
 # Trap Ctrl+C (SIGINT) to ensure ffuf is properly killed and not left running
-trap 'echo -e "\n[!] Caught SIGINT. Stopping cleanly..."; pkill -f "ffuf -u $TARGET" 2>/dev/null; exit 0' SIGINT
+trap 'echo -e "\n${RED}[!] Caught SIGINT. Stopping cleanly...${NC}"; pkill -f "ffuf -u $TARGET" 2>/dev/null; exit 0' SIGINT
 
 # =============================================================================
 # Main ffuf execution with live monitoring
@@ -48,35 +56,41 @@ ffuf \
   -o "ffuf-safe-${TIMESTAMP}.json" \
   -v "$@" 2>&1 | tee -a "ffuf-live-${TIMESTAMP}.log" | while read -r line; do
 
-    # Print every line to terminal (live view)
-    echo "$line"
+    # Get current Date and Time for this exact log line
+    CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
+
+    # Print every line to terminal with timestamp (Live view)
+    echo "[$CURRENT_TIME] $line"
     ((request_count++))
 
     # Show progress every 500 requests
     if (( request_count % 500 == 0 )); then
-        echo "[PROGRESS] Requests sent: $request_count"
+        echo -e "${YELLOW}[$CURRENT_TIME] [PROGRESS] Requests sent: $request_count${NC}"
     fi
 
     # =============================================================================
-    # WAF Rate Limit Detection (Circuit Breaker Logic)
+    # WAF Rate Limit Detection (Circuit Breaker Logic) - FIXED
     # =============================================================================
 
-    # Check if the current line contains a 429 response
-    if echo "$line" | grep -q "429"; then
+    # Check specifically for a 429 Status code
+    if echo "$line" | grep -q "Status: 429"; then
         ((consecutive_429++))
-        echo "[!] WAF Warning: 429 detected ($consecutive_429/$MAX_429)"
+        echo -e "${RED}[$CURRENT_TIME] [!] WAF Warning: 429 detected ($consecutive_429/$MAX_429)${NC}"
 
         # If we hit the threshold, stop everything
         if [ $consecutive_429 -ge $MAX_429 ]; then
-            echo "[X] CRITICAL: WAF Rate Limit hit $MAX_429 times. CIRCUIT BREAKER ACTIVATED."
-            echo "[X] Halting scan to protect target and your IP..."
+            echo -e "${RED}[$CURRENT_TIME] [X] CRITICAL: WAF Rate Limit hit $MAX_429 times. CIRCUIT BREAKER ACTIVATED.${NC}"
+            echo -e "${RED}[$CURRENT_TIME] [X] Halting scan to protect target and your IP...${NC}"
             pkill -f "ffuf -u $TARGET" 2>/dev/null
             exit 1
         fi
-    else
-        # Reset counter if we get a normal response (WAF cooled down)
+        
+    # Reset counter ONLY if we see a valid, non-429 Status line
+    elif echo "$line" | grep -q "Status: "; then
         consecutive_429=0
     fi
 done
 
-echo "[+] Scan completed or safely halted. Results saved to JSON."
+# Print final completion message with timestamp and green color
+FINAL_TIME=$(date +'%Y-%m-%d %H:%M:%S')
+echo -e "${GREEN}[$FINAL_TIME] [+] Scan completed or safely halted. Results saved to JSON.${NC}"
