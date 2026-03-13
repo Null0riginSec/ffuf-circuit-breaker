@@ -13,8 +13,13 @@ shift 2              # Remove the first two arguments to pass extra flags to ffu
 # Set your researcher identifier here (or leave as generic)
 RESEARCHER_ID="Security Researcher"
 
+# WAF Soft-Block Filter Size (e.g., F5 BIG-IP returns ~230 bytes for blocked pages)
+# You can change this or pass overriding flags via CLI (e.g., -fs 405)
+FILTER_SIZE="230"
+
 echo "[+] ffuf Circuit Breaker started on $TARGET"
 echo "[+] Wordlist: $WORDLIST"
+echo "[+] Filtering out WAF 'Soft Blocks' with size: $FILTER_SIZE bytes"
 
 consecutive_429=0    # Counter for consecutive 429 responses
 MAX_429=5            # Threshold - stop after this many 429s in a row
@@ -42,6 +47,7 @@ trap 'echo -e "\n${RED}[!] Caught SIGINT. Stopping cleanly...${NC}"; pkill -f "f
 # -t 2 : Low thread count for safety and stealth
 # -mc 200,301,302,403 : Only show interesting status codes
 # -fc 404 : Filter out noise (404 pages)
+# -fs   : Filter out WAF soft-blocks based on size
 # =============================================================================
 
 TIMESTAMP=$(date +%F_%H%M)
@@ -52,6 +58,7 @@ ffuf \
   -t 2 \
   -mc 200,301,302,403 \
   -fc 404 \
+  -fs "$FILTER_SIZE" \
   -H "User-Agent: Mozilla/5.0 (compatible; $RESEARCHER_ID)" \
   -o "ffuf-safe-${TIMESTAMP}.json" \
   -v "$@" 2>&1 | tee -a "ffuf-live-${TIMESTAMP}.log" | while read -r line; do
